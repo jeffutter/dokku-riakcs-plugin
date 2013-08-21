@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e;
 
+HOME=/home/git/.riakcs; export $HOME
+
 # Check if name is specified
 if [[ $1 == riakcs:* ]]; then
     if [[ -z $2 ]]; then
@@ -22,40 +24,54 @@ if [[ $APP_EXISTS == false ]]; then
   exit 1
 fi
 
+
+APP_PATH=/home/git/$APP
+
 ADMIN_KEY=`cat /home/git/.riakcs/admin_user.json | grep -E -o '"key_id":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
 ADMIN_SECRET=`cat /home/git/.riakcs/admin_user.json | grep -E -o '"key_secret":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
-USER_KEY=`cat /home/git/.riakcs/user_$APP.json | grep -E -o '"key_id":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
-USER_SECRET=`cat /home/git/.riakcs/user_$APP.json | grep -E -o '"key_secret":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
 RIAK_CONTAINER=`docker ps|grep "jeffutter/riakcs:latest"| cut -f 1 -d ' '`
 RIAK_PORT=`docker port ${RIAK_CONTAINER} 8080`
 
+cat <<EOF >> ~/.s3curl
+%awsSecretAccessKeys = (
+    admin => {
+        id => '${$ADMIN_KEY}',
+        key => '${ADMIN_SECRET}',
+    },
+);
+EOF
+chmod 600 ~/.s3curl
+
 case "$1" in
   riakcs:create)
-    perl /home/git/.riakcs/s3-curl/s3curl.pl --id "${ADMIN_KEY}" --key "${ADMIN_SECRET}" --contentType application/json --post -- -s -x localhost:${RIAK_PORT} --data "{\"email\":\"${APP}@${HOSTNAME}\", \"name\":\"${APP}\"}" http://riak-cs.s3.amazonaws.com/user > /home/git/.riakcs/user_$APP.json
-    USER_KEY=`cat /home/git/.riakcs/user_$APP.json | grep -E -o '"key_id":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
-    USER_SECRET=`cat /home/git/.riakcs/user_$APP.json | grep -E -o '"key_secret":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
+    perl ~/s3-curl/s3curl.pl --id admin --contentType application/json --post -- -s -x localhost:${RIAK_PORT} --data "{\"email\":\"${APP}@${HOSTNAME}\", \"name\":\"${APP}\"}" http://riak-cs.s3.amazonaws.com/user > ~/user_$APP.json
+    USER_KEY=`cat ~/user_$APP.json | grep -E -o '"key_id":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
+    USER_SECRET=`cat ~/user_$APP.json | grep -E -o '"key_secret":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
+
     if [[ ! -f /home/git/$APP/ENV ]]; then
       touch /home/git/$APP/ENV
     fi
-    awk '/^S3_PORT=/ {print "S3_PORT='$RIAK_PORT'"; found=1} !/^S3_PORT=/ {print $0} END {if (!found) {print "S3_PORT='$RIAK_PORT'" }}' /home/git/$APP/ENV > /home/git/$APP/ENV.new
-    mv /home/git/$APP/ENV.new /home/git/$APP/ENV
-    awk '/^S3_KEY=/ {print "S3_KEY='$USER_KEY'"; found=1} !/^S3_KEY=/ {print $0} END {if (!found) {print "S3_KEY='$USER_KEY'" }}' /home/git/$APP/ENV > /home/git/$APP/ENV.new
-    mv /home/git/$APP/ENV.new /home/git/$APP/ENV
-    awk '/^S3_SECRET=/ {print "S3_SECRET='$USER_SECRET'"; found=1} !/^S3_SECRET=/ {print $0} END {if (!found) {print "S3_SECRET='$USER_SECRET'" }}' /home/git/$APP/ENV > /home/git/$APP/ENV.new
-    mv /home/git/$APP/ENV.new /home/git/$APP/ENV
-    chown git: /home/git/$APP/ENV
+    awk '/^S3_PORT=/ {print "S3_PORT='$RIAK_PORT'"; found=1} !/^S3_PORT=/ {print $0} END {if (!found) {print "S3_PORT='$RIAK_PORT'" }}' $APP_PATH/ENV > $APP_PATH/ENV.new
+    mv $APP_PATH/ENV.new $APP_PATH/ENV
+    awk '/^S3_KEY=/ {print "S3_KEY='$USER_KEY'"; found=1} !/^S3_KEY=/ {print $0} END {if (!found) {print "S3_KEY='$USER_KEY'" }}' $APP_PATH/ENV > $APP_PATH/ENV.new
+    mv $APP_PATH/ENV.new $APP_PATH/$APP/ENV
+    awk '/^S3_SECRET=/ {print "S3_SECRET='$USER_SECRET'"; found=1} !/^S3_SECRET=/ {print $0} END {if (!found) {print "S3_SECRET='$USER_SECRET'" }}' $APP_PATH/ENV > $APP_PATH/ENV.new
+    mv $APP_PATH/ENV.new $APP_PATH/ENV
+    chown git: $APP_PATH/ENV
     ;;
   riakcs:delete)
-    perl /home/git/.riakcs/s3-curl/s3curl.pl --id "${ADMIN_KEY}" --key "${ADMIN_SECRET}" --delete -- -s -x localhost:${RIAK_PORT} http://riak-cs.s3.amazonaws.com/user/${USER_KEY}
-    if [[ ! -f /home/git/$APP/ENV ]]; then
-      touch /home/git/$APP/ENV
+    USER_KEY=`cat ~/user_$APP.json | grep -E -o '"key_id":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
+    perl /home/git/.riakcs/s3-curl/s3curl.pl --id admin --delete -- -s -x localhost:${RIAK_PORT} http://riak-cs.s3.amazonaws.com/user/${USER_KEY}
+
+    if [[ ! -f $APP_PATH/ENV ]]; then
+      touch $APP_PATH/ENV
     fi
-    cat /home/git/$APP/ENV | grep -V 'S3_KEY' | grep -V 'S3_SECRET' | grep -V 'S3_PORT' > /home/git/$APP/ENV.new
-    mv /home/git/$APP/ENV.new /home/git/$APP/ENV
-    chown git: /home/git/$APP/ENV
+    cat $APP_PATH/ENV | grep -V 'S3_KEY' | grep -V 'S3_SECRET' | grep -V 'S3_PORT' > $APP_PATH/ENV.new
+    mv $APP_PATH/ENV.new $APP_PATH/ENV
+    chown git: $APP_PATH/ENV
     ;;
   riakcs:list)
-    perl /home/git/.riakcs/s3-curl/s3curl.pl --id "${ADMIN_KEY}" --key "${ADMIN_SECRET}" -- -s -x localhost:${RIAK_PORT} -H "Accept: application/json" http://s3.amazonaws.com/riak-cs/users
+    perl ~/s3-curl/s3curl.pl --id admin -- -s -x localhost:${RIAK_PORT} -H "Accept: application/json" http://s3.amazonaws.com/riak-cs/users
     ;;
 esac
 cat
