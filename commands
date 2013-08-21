@@ -1,0 +1,38 @@
+#!/bin/bash
+set -e;
+
+# Check if name is specified
+if [[ $1 == riakcs:* ]]; then
+    if [[ -z $2 ]]; then
+        echo "You must specify an app name"
+        exit 1
+    else
+        APP="$2"
+        # Check if app exists with the same name
+        if [[ -d "/home/git/$APP" ]]; then
+            APP_EXISTS=true
+        else
+            APP_EXISTS=false
+        fi
+    fi
+fi
+
+ADMIN_KEY=`cat /home/git/.riakcs/admin_user.json | grep -E -o '"key_id":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
+ADMIN_SECRET=`cat /home/git/.riakcs/admin_user.json | grep -E -o '"key_secret":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
+USER_KEY=`cat /home/git/.riakcs/user_$APP.json | grep -E -o '"key_id":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
+USER_SECRET=`cat /home/git/.riakcs/user_$APP.json | grep -E -o '"key_secret":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
+RIAK_CONTAINER=`docker ps|grep "jeffutter/riakcs:latest"| cut -f 1 -d ' '`
+RIAK_PORT=`docker port ${RIAK_CONTAINER} 8080`
+
+case "$1" in
+  riakcs:create)
+    perl /home/git/.riakcs/s3-curl/s3curl.pl --id "${ADMIN_KEY}" --key "${ADMIN_SECRET}" --contentType application/json --post -- -x localhost:${RIAK_PORT} --data "{\"email\":\"${APP}@${HOSTNAME}\", \"name\":\"${APP}\"}" http://riak-cs.s3.amazonaws.com/user > /home/git/.riakcs/user_$APP.json
+    ;;
+  riakcs:delete)
+    perl /home/git/.riakcs/s3-curl/s3curl.pl --debug --id "${ADMIN_KEY}" --key "${ADMIN_SECRET}" --delete -- -x localhost:${RIAK_PORT} http://riak-cs.s3.amazonaws.com/user/${USER_KEY}
+    ;;
+  riakcs:list)
+    perl /home/git/.riakcs/s3-curl/s3curl.pl --id "${ADMIN_KEY}" --key "${ADMIN_SECRET}" -- -x localhost:${RIAK_PORT} -H "Accept: application/json" http://s3.amazonaws.com/riak-cs/users
+    ;;
+esac
+cat

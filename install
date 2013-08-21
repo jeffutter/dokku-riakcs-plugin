@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Build RiakCS image
+apt-get -y install unzip libdigest-hmac-perl
+docker build -q=true -t jeffutter/riakcs github.com/jeffutter/riakcs-docker
+if [[ ! -d /home/git/.riakcs ]]; then
+  mkdir -p /home/git/.riakcs
+fi
+cd /home/git/.riakcs
+wget http://s3.amazonaws.com/doc/s3-example-code/s3-curl.zip
+unzip s3-curl.zip
+rm s3-curl.zip
+docker run jeffutter/riakcs cat /admin_user.json > /home/git/.riakcs/admin_user.json
+chown -R git: /home/git/.riakcs
