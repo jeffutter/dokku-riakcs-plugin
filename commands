@@ -104,4 +104,7 @@ case "$1" in
     exit 1
     ;;
 esac
+
+HOME=/home/git
+
 cat
