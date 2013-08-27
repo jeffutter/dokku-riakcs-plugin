@@ -53,7 +53,7 @@ case "$1" in
   riakcs:create)
     check_exists
 
-    perl /home/git/.riakcs/s3-curl/s3curl.pl --id admin --contentType application/json --post -- -s -x localhost:${riak_port} --data "{\"email\":\"${APP}@${HOSTNAME}\", \"name\":\"${APP}\"}" http://riak-cs.s3.amazonaws.com/user > /home/git/.riakcs/user_$APP.json
+    perl /home/git/.riakcs/s3-curl/s3curl.pl --id admin --contentType application/json --post -- -s -x localhost:${riak_port} --data "{\"email\":\"${APP}@${HOSTNAME}\", \"name\":\"${APP}\"}" http://riak-cs.s3.amazonaws.com/user > "/home/git/.riakcs/user_${APP}.json"
 
     user_key=$(cat /home/git/.riakcs/user_${APP}.json | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
     user_secret=$(cat /home/git/.riakcs/user_${APP}.json | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_secret']")
