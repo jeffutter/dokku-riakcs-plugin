@@ -44,20 +44,8 @@ clear_dokku_env() {
 
 APP_PATH=/home/git/$APP
 
-ADMIN_KEY=`cat /home/git/.riakcs/admin_user.json | grep -E -o '"key_id":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
-ADMIN_SECRET=`cat /home/git/.riakcs/admin_user.json | grep -E -o '"key_secret":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
 RIAK_CONTAINER=`docker ps|grep "jeffutter/riakcs:latest"| cut -f 1 -d ' '`
 RIAK_PORT=`docker port ${RIAK_CONTAINER} 8080`
-
-cat <<EOF >> $HOME/.s3curl
-%awsSecretAccessKeys = (
-    admin => {
-        id => '${ADMIN_KEY}',
-        key => '${ADMIN_SECRET}',
-    },
-);
-EOF
-chmod 600 $HOME/.s3curl
 
 case "$1" in
   riakcs:create)

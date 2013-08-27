@@ -13,4 +13,16 @@ rm s3-curl.zip
 echo `docker run jeffutter/riakcs cat /admin_user.json` > /home/git/.riakcs/admin_user.json
 chown -R git: /home/git/.riakcs
 
+ADMIN_KEY=`cat /home/git/.riakcs/admin_user.json | grep -E -o '"key_id":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
+ADMIN_SECRET=`cat /home/git/.riakcs/admin_user.json | grep -E -o '"key_secret":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
+cat <<EOF >> /home/git/.riakcs/.s3curl
+%awsSecretAccessKeys = (
+    admin => {
+        id => '${ADMIN_KEY}',
+        key => '${ADMIN_SECRET}',
+    },
+);
+EOF
+chmod 600 $HOME/.s3curl
+
 docker run -d jeffutter/riakcs
