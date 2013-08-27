@@ -50,6 +50,7 @@ DB_IMAGE=jeffutter/riakcs
 ID=$(docker ps -a | grep "$DB_IMAGE":latest |  awk '{print $1}')
 RIAK_PORT=`docker port ${ID} 8080`
 RIAK_IP=$(docker inspect ${ID} | grep IPAddress | awk '{ print $2 }' | tr -d ',"')
+BUCKET_NAME='default'
 
 case "$1" in
   riakcs:create)
@@ -59,14 +60,29 @@ case "$1" in
     USER_KEY=`cat ~/user_$APP.json | grep -E -o '"key_id":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
     USER_SECRET=`cat ~/user_$APP.json | grep -E -o '"key_secret":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
 
+    s3curl=<<EOF
+    ${APP} => {
+        id => '${USER_KEY}',
+        key => '${USER_SECRET}',
+    },
+EOF
+
+    sed -i "/^\);$/i${s3curl}" ~/.s3curl
+
+    perl s3-curl/s3curl.pl --id ${APP} -- -s -v -x localhost:${RIAK_PORT} -X PUT http://${BUCKET_NAME}.s3.amazonaws.com/
+
     if [[ ! -f /home/git/$APP/ENV ]]; then
       touch /home/git/$APP/ENV
     fi
 
-    set_dokku_env $APP_PATH/ENV S3_HOST $RIAK_IP
-    set_dokku_env $APP_PATH/ENV S3_PORT $RIAK_PORT
-    set_dokku_env $APP_PATH/ENV S3_KEY $USER_KEY
-    set_dokku_env $APP_PATH/ENV S3_SECRET $USER_SECRET
+    RIAK_PORT=8080
+    set_dokku_env $APP_PATH/ENV S3_PROXY_HOST $RIAK_IP
+    set_dokku_env $APP_PATH/ENV S3_PROXY_PORT $RIAK_PORT
+    set_dokku_env $APP_PATH/ENV AWS_ACCESS_KEY_ID $USER_KEY
+    set_dokku_env $APP_PATH/ENV AWS_SECRET_ACCESS_KEY $USER_SECRET
+    set_dokku_env $APP_PATH/ENV S3_BUCKET_NAME $BUCKET_NAME
+    set_dokku_env $APP_PATH/ENV S3_ASSET_URL "http://assets.${APP}.${HOSTNAME}/${BUCKET_NAME}"
+    set_dokku_env $APP_PATH/ENV S3_ENDPOINT 'http://s3.amazonaws.com'
 
     chown git: $APP_PATH/ENV
     ;;
@@ -80,7 +96,7 @@ case "$1" in
       touch $APP_PATH/ENV
     fi
 
-    VARS=( "S3_KEY" "S3_SECRET" "S3_PORT" "S3_HOST")
+    VARS=( "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "S3_PROXY_PORT" "S3_PROXY_HOST" "S3_BUCKET_NAME" "S3_ASSET_URL" "S3_ENDPOINT")
     clear_dokku_env VARS 
 
     chown git: $APP_PATH/ENV
