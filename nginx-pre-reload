@@ -21,7 +21,7 @@ if [[ -f "$HOME/VHOST" ]]; then
       touch $HOME/$APP/nginx-assets.conf
     fi
 
-    cat<<EOF >> $HOME/$APP/nginx-assets.conf
+    cat<<EOF > $HOME/$APP/nginx-assets.conf
 
 upstream riak_cs_${APP} {
   server  localhost:${riak_port};
