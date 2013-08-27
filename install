@@ -25,4 +25,5 @@ cat <<EOF >> /home/git/.riakcs/.s3curl
 EOF
 chmod 600 $HOME/.s3curl
 
+echo "include /home/git/*/nginx-assets.conf;" > /etc/nginx/conf.d/dokku.conf
 docker run -d jeffutter/riakcs

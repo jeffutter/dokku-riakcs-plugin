@@ -1,0 +1,36 @@
+#!/bin/bash
+set -e
+APP="$1"
+
+
+if [[ -f "/home/git/.riakcs/user_${APP}.json" ]]; then
+
+  db_image=jeffutter/riakcs
+  id=$(docker ps -a | grep "$db_image":latest |  awk '{print $1}')
+  riak_port=$(docker port ${id} 8080)
+
+  cat<<EOF >> $HOME/$APP/nginx-assets.conf
+
+upstream riak_cs_${APP} {
+  server  localhost:${riak_port};
+}
+
+server {
+  listen   80;
+  server_name  assests.{$hostname};
+
+  location / {
+      proxy_set_header Host \$http_host;
+      proxy_set_header X-Real-IP \$remote_addr;
+      proxy_redirect off;
+
+      proxy_connect_timeout      90;
+      proxy_send_timeout         90;
+      proxy_read_timeout         90;
+
+      proxy_pass http://riak_cs_${APP};
+    }
+}
+EOF
+
+fi
