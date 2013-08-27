@@ -62,7 +62,7 @@ case "$1" in
 
     ex -sc "%s/^);\$/${s3curl}\r);/g" -c "x" /home/git/.riakcs/.s3curl
 
-    perl /home/git/.riakcs/s3-curl/s3curl.pl --id ${APP} -- -s -v -x localhost:${riak_port} -X PUT http://${bucket_name}.s3.amazonaws.com/
+    perl /home/git/.riakcs/s3-curl/s3curl.pl --id "$APP" -- -s -v -x localhost:"$riak_port" -X PUT "http://${bucket_name}.s3.amazonaws.com/"
 
     if [[ ! -f /home/git/$APP/ENV ]]; then
       touch /home/git/$APP/ENV
