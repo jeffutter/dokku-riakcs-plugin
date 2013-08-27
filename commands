@@ -99,10 +99,6 @@ case "$1" in
   riakcs:list)
     perl ~/s3-curl/s3curl.pl --id admin -- -s -x localhost:${riak_port} -H "Accept: application/json" http://s3.amazonaws.com/riak-cs/users
     ;;
-  *)
-    echo "Command Not Found"
-    exit 1
-    ;;
 esac
 
 HOME=/home/git
