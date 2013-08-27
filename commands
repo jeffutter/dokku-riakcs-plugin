@@ -53,16 +53,16 @@ case "$1" in
   riakcs:create)
     check_exists
 
-    perl ~/s3-curl/s3curl.pl --id admin --contentType application/json --post -- -s -x localhost:${riak_port} --data "{\"email\":\"${APP}@${HOSTNAME}\", \"name\":\"${APP}\"}" http://riak-cs.s3.amazonaws.com/user > ~/user_$APP.json
+    perl /home/git/.riakcs/s3-curl/s3curl.pl --id admin --contentType application/json --post -- -s -x localhost:${riak_port} --data "{\"email\":\"${APP}@${HOSTNAME}\", \"name\":\"${APP}\"}" http://riak-cs.s3.amazonaws.com/user > /home/git/.riakcs/user_$APP.json
 
-    user_key=$(cat ~/user_${APP}.json | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
-    user_secret=$(cat ~/user_${APP}.json | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_secret']")
+    user_key=$(cat /home/git/.riakcs/user_${APP}.json | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
+    user_secret=$(cat /home/git/.riakcs/user_${APP}.json | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_secret']")
 
     s3curl="${APP} => { id => '${user_key}', key => '${user_secret}',},"
 
-    ex -sc "%s/^);\$/${s3curl});/g" -c "x" ~/.s3curl
+    ex -sc "%s/^);\$/${s3curl});/g" -c "x" /home/git/.riakcs/.s3curl
 
-    perl ~/s3-curl/s3curl.pl --id ${APP} -- -s -v -x localhost:${riak_port} -X PUT http://${bucket_name}.s3.amazonaws.com/
+    perl /home/git/.riakcs/s3-curl/s3curl.pl --id ${APP} -- -s -v -x localhost:${riak_port} -X PUT http://${bucket_name}.s3.amazonaws.com/
 
     if [[ ! -f /home/git/$APP/ENV ]]; then
       touch /home/git/$APP/ENV
@@ -82,10 +82,10 @@ case "$1" in
   riakcs:delete)
     check_exists
 
-    user_key=$(cat ~/user_${APP}.json | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
+    user_key=$(cat /home/git/.riakcs/user_${APP}.json | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
     perl /home/git/.riakcs/s3-curl/s3curl.pl --id admin --delete -- -s -x localhost:${riak_port} http://riak-cs.s3.amazonaws.com/user/${user_key}
 
-    ex -sc "g/${APP} =>/d" -c "x" ~/.s3curl
+    ex -sc "g/${APP} =>/d" -c "x" /home/git/.riakcs/.s3curl
 
     if [[ ! -f $app_path/ENV ]]; then
       touch $app_path/ENV
@@ -97,7 +97,7 @@ case "$1" in
     chown git: $app_path/ENV
     ;;
   riakcs:list)
-    perl ~/s3-curl/s3curl.pl --id admin -- -s -x localhost:${riak_port} -H "Accept: application/json" http://s3.amazonaws.com/riak-cs/users
+    perl /home/git/.riakcs/s3-curl/s3curl.pl --id admin -- -s -x localhost:${riak_port} -H "Accept: application/json" http://s3.amazonaws.com/riak-cs/users
     ;;
 esac
 
