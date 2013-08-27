@@ -45,8 +45,8 @@ app_path=/home/git/$APP
 
 db_image=jeffutter/riakcs
 id=$(docker ps -a | grep "$db_image":latest |  awk '{print $1}')
-riak_port=$(docker port ${id} 8080)
-riak_ip=$(docker inspect ${id} | grep IPAddress | awk '{ print $2 }' | tr -d ',"')
+riak_port=$(docker port "$id" 8080)
+riak_ip=$(docker inspect "$id" | grep IPAddress | awk '{ print $2 }' | tr -d ',"')
 bucket_name='default'
 
 case "$1" in
