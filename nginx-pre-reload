@@ -2,18 +2,26 @@
 set -e
 APP="$1"
 
-
-if [[ -f "/home/git/.riakcs/user_${APP}.json" ]]; then
-
-  db_image=jeffutter/riakcs
-  id=$(docker ps -a | grep "$db_image":latest |  awk '{print $1}')
-  riak_port=$(docker port ${id} 8080)
-
-  if [[ ! -f $HOME/$APP/nginx-assets.conf ]]; then
-    touch $HOME/$APP/nginx-assets.conf
+if [[ -f "$HOME/VHOST" ]]; then
+  VHOST=$(< "$HOME/VHOST")
+  SUBDOMAIN=${APP/%\.${VHOST}/}
+  if [[ "$APP" == *.* ]] && [[ "$SUBDOMAIN" == "$APP" ]]; then
+    hostname="${APP/\//-}"
+  else
+    hostname="${APP/\//-}.$VHOST"
   fi
 
-  cat<<EOF >> $HOME/$APP/nginx-assets.conf
+  if [[ -f "/home/git/.riakcs/user_${APP}.json" ]]; then
+
+    db_image=jeffutter/riakcs
+    id=$(docker ps -a | grep "$db_image":latest |  awk '{print $1}')
+    riak_port=$(docker port ${id} 8080)
+
+    if [[ ! -f $HOME/$APP/nginx-assets.conf ]]; then
+      touch $HOME/$APP/nginx-assets.conf
+    fi
+
+    cat<<EOF >> $HOME/$APP/nginx-assets.conf
 
 upstream riak_cs_${APP} {
   server  localhost:${riak_port};
@@ -21,7 +29,7 @@ upstream riak_cs_${APP} {
 
 server {
   listen   80;
-  server_name  assests.{$hostname};
+  server_name  assests.${hostname};
 
   location / {
       proxy_set_header Host \$http_host;
@@ -37,4 +45,5 @@ server {
 }
 EOF
 
+  fi
 fi
