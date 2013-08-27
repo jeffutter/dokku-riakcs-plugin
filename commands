@@ -82,7 +82,7 @@ case "$1" in
   riakcs:delete)
     check_exists
 
-    user_key=$(~/user_${APP}.json | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
+    user_key=$(cat ~/user_${APP}.json | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
     perl /home/git/.riakcs/s3-curl/s3curl.pl --id admin --delete -- -s -x localhost:${riak_port} http://riak-cs.s3.amazonaws.com/user/${user_key}
 
     if [[ ! -f $app_path/ENV ]]; then
