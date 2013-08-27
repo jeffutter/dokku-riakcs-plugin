@@ -49,15 +49,15 @@ ADMIN_SECRET=`cat /home/git/.riakcs/admin_user.json | grep -E -o '"key_secret":"
 RIAK_CONTAINER=`docker ps|grep "jeffutter/riakcs:latest"| cut -f 1 -d ' '`
 RIAK_PORT=`docker port ${RIAK_CONTAINER} 8080`
 
-cat <<EOF >> ~/.s3curl
+cat <<EOF >> $HOME/.s3curl
 %awsSecretAccessKeys = (
     admin => {
-        id => '${$ADMIN_KEY}',
+        id => '${ADMIN_KEY}',
         key => '${ADMIN_SECRET}',
     },
 );
 EOF
-chmod 600 ~/.s3curl
+chmod 600 $HOME/.s3curl
 
 case "$1" in
   riakcs:create)
