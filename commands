@@ -19,10 +19,12 @@ if [[ $1 == riakcs:* ]]; then
     fi
 fi
 
-if [[ $APP_EXISTS == false ]]; then
-  echo "App must exist before creating RiakCS storage for it"
-  exit 1
-fi
+check_exists() {
+  if [[ $APP_EXISTS == false ]]; then
+    echo "App must exist before creating mongodb storage for it"
+    exit 1
+  fi
+}
 
 set_dokku_env() {
   ENV_PATH=$1
@@ -49,6 +51,8 @@ RIAK_PORT=`docker port ${RIAK_CONTAINER} 8080`
 
 case "$1" in
   riakcs:create)
+    check_exists
+
     perl ~/s3-curl/s3curl.pl --id admin --contentType application/json --post -- -s -x localhost:${RIAK_PORT} --data "{\"email\":\"${APP}@${HOSTNAME}\", \"name\":\"${APP}\"}" http://riak-cs.s3.amazonaws.com/user > ~/user_$APP.json
     USER_KEY=`cat ~/user_$APP.json | grep -E -o '"key_id":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
     USER_SECRET=`cat ~/user_$APP.json | grep -E -o '"key_secret":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
@@ -64,6 +68,8 @@ case "$1" in
     chown git: $APP_PATH/ENV
     ;;
   riakcs:delete)
+    check_exists
+    
     USER_KEY=`cat ~/user_$APP.json | grep -E -o '"key_id":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
     perl /home/git/.riakcs/s3-curl/s3curl.pl --id admin --delete -- -s -x localhost:${RIAK_PORT} http://riak-cs.s3.amazonaws.com/user/${USER_KEY}
 
