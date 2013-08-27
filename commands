@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e;
 
-HOME=/home/git/.riakcs; export $HOME
+HOME=/home/git/.riakcs
 
 # Check if name is specified
 if [[ $1 == riakcs:* ]]; then
@@ -24,6 +24,23 @@ if [[ $APP_EXISTS == false ]]; then
   exit 1
 fi
 
+set_dokku_env() {
+  ENV_PATH=$1
+  ENV_VAR=$2
+  ENV_VAL=$3
+  awk '/^export '$ENV_VAR'=/ {print "export '$ENV_VAR'=\"'$ENV_VAL'\""; found=1} !/^export '$ENV_VAR'=/ {print $0} END {if (!found) {print "export '$ENV_VAR'=\"'$ENV_VAL'\"" }}' ${ENV_PATH} > ${ENV_PATH}.new
+  mv "${ENV_PATH}.new" ${ENV_PATH}
+  rm ${ENV_PATH}.new
+}
+
+clear_dokku_env() {
+  local ref=$1[@]
+  for x in ${!ref}; do
+    cat "${APP_PATH}/ENV" | grep -v ${x} > ${APP_PATH}/ENV.new
+    mv "${APP_PATH}/ENV.new" $APP_PATH/ENV
+    rm "${APP_PATH}/ENV.new"
+  done
+}
 
 APP_PATH=/home/git/$APP
 
@@ -51,12 +68,11 @@ case "$1" in
     if [[ ! -f /home/git/$APP/ENV ]]; then
       touch /home/git/$APP/ENV
     fi
-    awk '/^S3_PORT=/ {print "S3_PORT='$RIAK_PORT'"; found=1} !/^S3_PORT=/ {print $0} END {if (!found) {print "S3_PORT='$RIAK_PORT'" }}' $APP_PATH/ENV > $APP_PATH/ENV.new
-    mv $APP_PATH/ENV.new $APP_PATH/ENV
-    awk '/^S3_KEY=/ {print "S3_KEY='$USER_KEY'"; found=1} !/^S3_KEY=/ {print $0} END {if (!found) {print "S3_KEY='$USER_KEY'" }}' $APP_PATH/ENV > $APP_PATH/ENV.new
-    mv $APP_PATH/ENV.new $APP_PATH/$APP/ENV
-    awk '/^S3_SECRET=/ {print "S3_SECRET='$USER_SECRET'"; found=1} !/^S3_SECRET=/ {print $0} END {if (!found) {print "S3_SECRET='$USER_SECRET'" }}' $APP_PATH/ENV > $APP_PATH/ENV.new
-    mv $APP_PATH/ENV.new $APP_PATH/ENV
+
+    set_dokku_env $APP_PATH/ENV S3_PORT $RIAK_PORT
+    set_dokku_env $APP_PATH/ENV S3_KEY $USER_KEY
+    set_dokku_env $APP_PATH/ENV S3_SECRET $USER_SECRET
+
     chown git: $APP_PATH/ENV
     ;;
   riakcs:delete)
@@ -66,8 +82,10 @@ case "$1" in
     if [[ ! -f $APP_PATH/ENV ]]; then
       touch $APP_PATH/ENV
     fi
-    cat $APP_PATH/ENV | grep -V 'S3_KEY' | grep -V 'S3_SECRET' | grep -V 'S3_PORT' > $APP_PATH/ENV.new
-    mv $APP_PATH/ENV.new $APP_PATH/ENV
+
+    VARS=( "S3_KEY" "S3_SECRET" "S3_PORT")
+    clear_dokku_env VARS 
+
     chown git: $APP_PATH/ENV
     ;;
   riakcs:list)
