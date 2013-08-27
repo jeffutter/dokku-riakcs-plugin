@@ -46,8 +46,10 @@ clear_dokku_env() {
 
 APP_PATH=/home/git/$APP
 
-RIAK_CONTAINER=`docker ps|grep "jeffutter/riakcs:latest"| cut -f 1 -d ' '`
-RIAK_PORT=`docker port ${RIAK_CONTAINER} 8080`
+DB_IMAGE=jeffutter/riakcs
+ID=$(docker ps -a | grep "$DB_IMAGE":latest |  awk '{print $1}')
+RIAK_PORT=`docker port ${ID} 8080`
+RIAK_IP=$(docker inspect ${ID} | grep IPAddress | awk '{ print $2 }' | tr -d ',"')
 
 case "$1" in
   riakcs:create)
@@ -61,6 +63,7 @@ case "$1" in
       touch /home/git/$APP/ENV
     fi
 
+    set_dokku_env $APP_PATH/ENV S3_HOST $RIAK_IP
     set_dokku_env $APP_PATH/ENV S3_PORT $RIAK_PORT
     set_dokku_env $APP_PATH/ENV S3_KEY $USER_KEY
     set_dokku_env $APP_PATH/ENV S3_SECRET $USER_SECRET
@@ -69,7 +72,7 @@ case "$1" in
     ;;
   riakcs:delete)
     check_exists
-    
+
     USER_KEY=`cat ~/user_$APP.json | grep -E -o '"key_id":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
     perl /home/git/.riakcs/s3-curl/s3curl.pl --id admin --delete -- -s -x localhost:${RIAK_PORT} http://riak-cs.s3.amazonaws.com/user/${USER_KEY}
 
@@ -77,7 +80,7 @@ case "$1" in
       touch $APP_PATH/ENV
     fi
 
-    VARS=( "S3_KEY" "S3_SECRET" "S3_PORT")
+    VARS=( "S3_KEY" "S3_SECRET" "S3_PORT" "S3_HOST")
     clear_dokku_env VARS 
 
     chown git: $APP_PATH/ENV
