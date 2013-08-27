@@ -30,14 +30,14 @@ set_dokku_env() {
   env_path=$1
   env_var=$2
   env_val=$3
-  ex -sc "\"g/export ${env_var}=/d|x\"" "$env_path"
+  ex -s -c "g/export ${env_var}=/d" -c "x" "$env_path"
   echo "export ${env_var}=\"${env_val}\"" >> "$env_path"
 }
 
 clear_dokku_env() {
   local ref=$1[@]
   for x in ${!ref}; do
-    ex -sc "g/${env_var}/d" -c "x" "$app_path/ENV"
+    ex -s -c "g/${env_var}/d" -c "x" "$app_path/ENV"
   done
 }
 
@@ -60,7 +60,7 @@ case "$1" in
 
     s3curl="${APP} => { id => '${user_key}', key => '${user_secret}',},"
 
-    ex -sc "%s/^);\$/${s3curl});/g" -c "x" /home/git/.riakcs/.s3curl
+    ex -sc "%s/^);\$/${s3curl}\r);/g" -c "x" /home/git/.riakcs/.s3curl
 
     perl /home/git/.riakcs/s3-curl/s3curl.pl --id ${APP} -- -s -v -x localhost:${riak_port} -X PUT http://${bucket_name}.s3.amazonaws.com/
 
