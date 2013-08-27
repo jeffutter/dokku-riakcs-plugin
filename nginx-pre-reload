@@ -29,7 +29,7 @@ upstream riak_cs_${APP} {
 
 server {
   listen   80;
-  server_name  assests.${hostname};
+  server_name  assets.${hostname};
 
   location / {
       proxy_set_header Host \$http_host;
