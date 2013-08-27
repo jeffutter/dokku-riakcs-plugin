@@ -10,11 +10,12 @@ cd /home/git/.riakcs
 wget http://s3.amazonaws.com/doc/s3-example-code/s3-curl.zip
 unzip s3-curl.zip
 rm s3-curl.zip
-echo `docker run jeffutter/riakcs cat /admin_user.json` > /home/git/.riakcs/admin_user.json
+echo $(docker run jeffutter/riakcs cat /admin_user.json) > /home/git/.riakcs/admin_user.json
 chown -R git: /home/git/.riakcs
 
-ADMIN_KEY=`cat /home/git/.riakcs/admin_user.json | grep -E -o '"key_id":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
-ADMIN_SECRET=`cat /home/git/.riakcs/admin_user.json | grep -E -o '"key_secret":"[^\"]+"' | sed -e 's/\"//g' | cut -d : -f 2`
+ADMIN_KEY=$(cat /home/git/.riakcs/admin_user.json | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
+ADMIN_SECRET=$(cat /home/git/.riakcs/admin_user.json | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_secret']")
+
 cat <<EOF > /home/git/.riakcs/.s3curl
 %awsSecretAccessKeys = (
     admin => {
@@ -24,6 +25,7 @@ cat <<EOF > /home/git/.riakcs/.s3curl
 );
 EOF
 chmod 600 /home/git/.riakcs/.s3curl
+chown root: /home/git/.riakcs/.s3curl
 
 echo "include /home/git/*/nginx-assets.conf;" >> /etc/nginx/conf.d/dokku.conf
 docker run -d jeffutter/riakcs

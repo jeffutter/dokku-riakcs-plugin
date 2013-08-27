@@ -61,6 +61,8 @@ case "$1" in
     s3curl="${APP} => { id => '${user_key}', key => '${user_secret}',},"
 
     ex -sc "%s/^);\$/${s3curl}\r);/g" -c "x" /home/git/.riakcs/.s3curl
+    chmod 600 /home/git/.riakcs/.s3curl
+    chown root: /home/git/.riakcs/.s3curl
 
     perl /home/git/.riakcs/s3-curl/s3curl.pl --id "$APP" -- -s -v -x localhost:"$riak_port" -X PUT "http://${bucket_name}.s3.amazonaws.com/"
 
