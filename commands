@@ -71,7 +71,7 @@ case "$1" in
     riak_port=8080
     set_dokku_env $app_path/ENV S3_PROXY_HOST $riak_ip
     set_dokku_env $app_path/ENV S3_PROXY_PORT $riak_port
-    set_dokku_env $app_path/ENV AWS_ACCESS_KEY_id $user_key
+    set_dokku_env $app_path/ENV AWS_ACCESS_KEY_ID $user_key
     set_dokku_env $app_path/ENV AWS_SECRET_ACCESS_KEY $user_secret
     set_dokku_env $app_path/ENV S3_BUCKET_NAME $bucket_name
     set_dokku_env $app_path/ENV S3_ASSET_HOST "http://assets.${APP}.${HOSTNAME}"
@@ -91,7 +91,7 @@ case "$1" in
       touch $app_path/ENV
     fi
 
-    VARS=( "AWS_ACCESS_KEY_id" "AWS_SECRET_ACCESS_KEY" "S3_PROXY_PORT" "S3_PROXY_HOST" "S3_BUCKET_NAME" "S3_ASSET_HOST" "S3_ENDPOINT")
+    VARS=( "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "S3_PROXY_PORT" "S3_PROXY_HOST" "S3_BUCKET_NAME" "S3_ASSET_HOST" "S3_ENDPOINT")
     clear_dokku_env VARS 
 
     chown git: $app_path/ENV
