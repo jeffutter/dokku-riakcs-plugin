@@ -7,6 +7,8 @@ docker build -q=true -t "$db_image" github.com/jeffutter/riakcs-docker
 
 if [[ ! -d "$DOKKU_ROOT/.riakcs" ]]; then
   mkdir -p "$DOKKU_ROOT/.riakcs"
+  mkdir -p "$DOKKU_ROOT/.riakcs/data"
+  docker run "$db_image" tar -cvps -C /var/lib/riak ./ | tar -xv -C "$DOKKU_ROOT/.riakcs/data/" -f -
 fi
 cd "$DOKKU_ROOT/.riakcs"
 wget http://s3.amazonaws.com/doc/s3-example-code/s3-curl.zip

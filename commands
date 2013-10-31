@@ -44,10 +44,11 @@ clear_dokku_env() {
 
 db_image="jeffutter/riakcs"
 id=$(docker ps | grep "$db_image":latest |  awk '{print $1}')
-riak_ip=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[1]}')
+riak_public_ip=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[1]}')
+riak_private_ip=$(docker inspect ${id} | grep IPAddress | awk '{ print $2 }' | tr -d ',"')
 riak_port=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[2]}')
-if [[ $riak_ip = "0.0.0.0" ]]; then
-  riak_ip=localhost
+if [[ $riak_public_ip = "0.0.0.0" ]]; then
+  riak_public_ip=localhost
 fi
 bucket_name='default'
 
@@ -57,7 +58,7 @@ case "$1" in
     check_app
     check_exists
 
-    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id admin --contentType application/json --post -- -s -x ${riak_ip}:${riak_port} --data "{\"email\":\"${APP}@${HOSTNAME}\", \"name\":\"${APP}\"}" http://riak-cs.s3.amazonaws.com/user > "$DOKKU_ROOT/.riakcs/user_${APP}.json"
+    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id admin --contentType application/json --post -- -s -x ${riak_public_ip}:${riak_port} --data "{\"email\":\"${APP}@${HOSTNAME}\", \"name\":\"${APP}\"}" http://riak-cs.s3.amazonaws.com/user > "$DOKKU_ROOT/.riakcs/user_${APP}.json"
 
     user_key=$(cat "$DOKKU_ROOT/.riakcs/user_${APP}.json" | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
     user_secret=$(cat "$DOKKU_ROOT/.riakcs/user_${APP}.json" | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_secret']")
@@ -68,14 +69,14 @@ case "$1" in
     chmod 600 "$DOKKU_ROOT/.riakcs/.s3curl"
     chown root: "$DOKKU_ROOT/.riakcs/.s3curl"
 
-    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id "$APP" -- -s -v -x "$riak_ip":"$riak_port" -X PUT "http://${bucket_name}.s3.amazonaws.com/"
+    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id "$APP" -- -s -v -x "$riak_public_ip":"$riak_port" -X PUT "http://${bucket_name}.s3.amazonaws.com/"
 
     if [[ ! -f "$DOKKU_ROOT/$APP/ENV" ]]; then
       touch "$DOKKU_ROOT/$APP/ENV"
     fi
 
     riak_port=8080
-    set_dokku_env "$DOKKU_ROOT/$APP/ENV" S3_PROXY_HOST $riak_ip
+    set_dokku_env "$DOKKU_ROOT/$APP/ENV" S3_PROXY_HOST $riak_private_ip
     set_dokku_env "$DOKKU_ROOT/$APP/ENV" S3_PROXY_PORT $riak_port
     set_dokku_env "$DOKKU_ROOT/$APP/ENV" AWS_ACCESS_KEY_ID $user_key
     set_dokku_env "$DOKKU_ROOT/$APP/ENV" AWS_SECRET_ACCESS_KEY $user_secret
@@ -91,7 +92,7 @@ case "$1" in
     check_exists
 
     user_key=$(cat "$DOKKU_ROOT/.riakcs/user_${APP}.json" | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
-    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id admin --delete -- -s -x ${riak_ip}:${riak_port} http://riak-cs.s3.amazonaws.com/user/${user_key}
+    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id admin --delete -- -s -x ${riak_public_ip}:${riak_port} http://riak-cs.s3.amazonaws.com/user/${user_key}
 
     ex -sc "g/${APP} =>/d" -c "x" "$DOKKU_ROOT/.riakcs/.s3curl"
 
@@ -106,17 +107,17 @@ case "$1" in
     ;;
   riakcs:list_users)
     check_container
-    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id admin -- -s -x ${riak_ip}:${riak_port} -H "Accept: application/json" http://s3.amazonaws.com/riak-cs/users
+    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id admin -- -s -x ${riak_public_ip}:${riak_port} -H "Accept: application/json" http://s3.amazonaws.com/riak-cs/users
     ;;
   riakcs:list_buckets)
     check_container
-    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id admin -- -s -x ${riak_ip}:${riak_port} http://s3.amazonaws.com/
+    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id admin -- -s -x ${riak_public_ip}:${riak_port} http://s3.amazonaws.com/
     ;;
   riakcs:start)
     if [[ "$id" != "" ]]; then
       echo "RiakCS container already running with ID: ${id}"
     else
-      docker run -p 8080:8080 -d "$db_image"
+      docker run -p 8080:8080 -v "$DOKKU_ROOT/.riakcs/data":/var/lib/riak -d "$db_image"
     fi
     ;;
   riakcs:stop)
