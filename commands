@@ -27,21 +27,6 @@ check_container() {
   fi
 }
 
-set_dokku_env() {
-  env_path=$1
-  env_var=$2
-  env_val=$3
-  ex -s -c "g/export ${env_var}=/d" -c "x" "$env_path"
-  echo "export ${env_var}=\"${env_val}\"" >> "$env_path"
-}
-
-clear_dokku_env() {
-  local ref=$1[@]
-  for x in ${!ref}; do
-    ex -sc "g/${env_var}/d" -c "x" "$DOKKU_ROOT/$APP/ENV"
-  done
-}
-
 db_image="jeffutter/riakcs"
 id=$(docker ps | grep "$db_image":latest |  awk '{print $1}')
 riak_public_ip=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[1]}')
@@ -71,20 +56,14 @@ case "$1" in
 
     perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id "$APP" -- -s -v -x "$riak_public_ip":"$riak_port" -X PUT "http://${bucket_name}.s3.amazonaws.com/"
 
-    if [[ ! -f "$DOKKU_ROOT/$APP/ENV" ]]; then
-      touch "$DOKKU_ROOT/$APP/ENV"
-    fi
-
     riak_port=8080
-    set_dokku_env "$DOKKU_ROOT/$APP/ENV" S3_PROXY_HOST $riak_private_ip
-    set_dokku_env "$DOKKU_ROOT/$APP/ENV" S3_PROXY_PORT $riak_port
-    set_dokku_env "$DOKKU_ROOT/$APP/ENV" AWS_ACCESS_KEY_ID $user_key
-    set_dokku_env "$DOKKU_ROOT/$APP/ENV" AWS_SECRET_ACCESS_KEY $user_secret
-    set_dokku_env "$DOKKU_ROOT/$APP/ENV" S3_BUCKET_NAME $bucket_name
-    set_dokku_env "$DOKKU_ROOT/$APP/ENV" S3_ASSET_HOST "http://assets.${APP}.${HOSTNAME}"
-    set_dokku_env "$DOKKU_ROOT/$APP/ENV" S3_ENDPOINT 'http://s3.amazonaws.com'
-
-    chown dokku: "$DOKKU_ROOT/$APP/ENV"
+    dokku config:set "$APP" S3_PROXY_HOST="$riak_private_ip" \
+      S3_PROXY_PORT="$riak_port" \
+      AWS_ACCESS_KEY_ID="$user_key" \
+      AWS_SECRET_ACCESS_KEY="$user_secret" \
+      S3_BUCKET_NAME="$bucket_name" \
+      S3_ASSET_HOST="http://assets.${APP}.${HOSTNAME}" \
+      S3_ENDPOINT='http://s3.amazonaws.com'
     ;;
   riakcs:delete)
     check_container
@@ -96,14 +75,13 @@ case "$1" in
 
     ex -sc "g/${APP} =>/d" -c "x" "$DOKKU_ROOT/.riakcs/.s3curl"
 
-    if [[ ! -f "$DOKKU_ROOT/$APP/ENV" ]]; then
-      touch "$DOKKU_ROOT/$APP/ENV"
-    fi
-
-    VARS=( "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "S3_PROXY_PORT" "S3_PROXY_HOST" "S3_BUCKET_NAME" "S3_ASSET_HOST" "S3_ENDPOINT")
-    clear_dokku_env VARS 
-
-    chown dokku: "$DOKKU_ROOT/$APP/ENV"
+    dokku config:unset "$APP" AWS_ACCESS_KEY_ID \
+      AWS_SECRET_ACCESS_KEY \
+      S3_PROXY_PORT \
+      S3_PROXY_HOST \
+      S3_BUCKET_NAME \
+      S3_ASSET_HOST \
+      S3_ENDPOINT
     ;;
   riakcs:list_users)
     check_container
