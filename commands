@@ -1,27 +1,28 @@
 #!/bin/bash
 #set -e;
 
-HOME=/home/git/.riakcs
+APP=$2
 
-# Check if name is specified
-if [[ $1 == riakcs:* ]]; then
-    if [[ -z $2 ]]; then
-        echo "You must specify an app name"
-        exit 1
-    else
-        APP="$2"
-        # Check if app exists with the same name
-        if [[ -d "/home/git/$APP" ]]; then
-            app_exists=true
-        else
-            app_exists=false
-        fi
-    fi
-fi
+OLDHOME=$HOME
+HOME="$DOKKU_ROOT/.riakcs"
 
 check_exists() {
-  if [[ $app_exists == false ]]; then
+  if [[ ! -d "$DOKKU_ROOT/$APP" ]]; then
     echo "App must exist before creating mongodb storage for it"
+    exit 1
+  fi
+}
+
+check_app() {
+  if [[ -z "$APP" ]]; then
+    echo "You must specify an app name"
+    exit 1
+  fi
+}
+
+check_container() {
+  if [[ -z "$id" ]]; then
+    echo "RiakCS container not started cannot continue. Start with dokku riakcs:start"
     exit 1
   fi
 }
@@ -37,72 +38,111 @@ set_dokku_env() {
 clear_dokku_env() {
   local ref=$1[@]
   for x in ${!ref}; do
-    ex -s -c "g/${env_var}/d" -c "x" "$app_path/ENV"
+    ex -sc "g/${env_var}/d" -c "x" "$DOKKU_ROOT/$APP/ENV"
   done
 }
 
-app_path=/home/git/$APP
-
-db_image=jeffutter/riakcs
-id=$(docker ps -a | grep "$db_image":latest |  awk '{print $1}')
-riak_port=$(docker port "$id" 8080)
-riak_ip=$(docker inspect "$id" | grep IPAddress | awk '{ print $2 }' | tr -d ',"')
+db_image="jeffutter/riakcs"
+id=$(docker ps | grep "$db_image":latest |  awk '{print $1}')
+riak_ip=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[1]}')
+riak_port=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[2]}')
+if [[ $riak_ip = "0.0.0.0" ]]; then
+  riak_ip=localhost
+fi
 bucket_name='default'
 
 case "$1" in
   riakcs:create)
+    check_container
+    check_app
     check_exists
 
-    perl /home/git/.riakcs/s3-curl/s3curl.pl --id admin --contentType application/json --post -- -s -x localhost:${riak_port} --data "{\"email\":\"${APP}@${HOSTNAME}\", \"name\":\"${APP}\"}" http://riak-cs.s3.amazonaws.com/user > "/home/git/.riakcs/user_${APP}.json"
+    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id admin --contentType application/json --post -- -s -x ${riak_ip}:${riak_port} --data "{\"email\":\"${APP}@${HOSTNAME}\", \"name\":\"${APP}\"}" http://riak-cs.s3.amazonaws.com/user > "$DOKKU_ROOT/.riakcs/user_${APP}.json"
 
-    user_key=$(cat "/home/git/.riakcs/user_${APP}.json" | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
-    user_secret=$(cat "/home/git/.riakcs/user_${APP}.json" | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_secret']")
+    user_key=$(cat "$DOKKU_ROOT/.riakcs/user_${APP}.json" | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
+    user_secret=$(cat "$DOKKU_ROOT/.riakcs/user_${APP}.json" | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_secret']")
 
     s3curl="${APP} => { id => '${user_key}', key => '${user_secret}',},"
 
-    ex -sc "%s/^);\$/${s3curl}\r);/g" -c "x" /home/git/.riakcs/.s3curl
-    chmod 600 /home/git/.riakcs/.s3curl
-    chown root: /home/git/.riakcs/.s3curl
+    ex -sc "%s/^);\$/${s3curl}\r);/g" -c "x" "$DOKKU_ROOT/.riakcs/.s3curl"
+    chmod 600 "$DOKKU_ROOT/.riakcs/.s3curl"
+    chown root: "$DOKKU_ROOT/.riakcs/.s3curl"
 
-    perl /home/git/.riakcs/s3-curl/s3curl.pl --id "$APP" -- -s -v -x localhost:"$riak_port" -X PUT "http://${bucket_name}.s3.amazonaws.com/"
+    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id "$APP" -- -s -v -x "$riak_ip":"$riak_port" -X PUT "http://${bucket_name}.s3.amazonaws.com/"
 
-    if [[ ! -f /home/git/$APP/ENV ]]; then
-      touch /home/git/$APP/ENV
+    if [[ ! -f "$DOKKU_ROOT/$APP/ENV" ]]; then
+      touch "$DOKKU_ROOT/$APP/ENV"
     fi
 
     riak_port=8080
-    set_dokku_env $app_path/ENV S3_PROXY_HOST $riak_ip
-    set_dokku_env $app_path/ENV S3_PROXY_PORT $riak_port
-    set_dokku_env $app_path/ENV AWS_ACCESS_KEY_ID $user_key
-    set_dokku_env $app_path/ENV AWS_SECRET_ACCESS_KEY $user_secret
-    set_dokku_env $app_path/ENV S3_BUCKET_NAME $bucket_name
-    set_dokku_env $app_path/ENV S3_ASSET_HOST "http://assets.${APP}.${HOSTNAME}"
-    set_dokku_env $app_path/ENV S3_ENDPOINT 'http://s3.amazonaws.com'
+    set_dokku_env "$DOKKU_ROOT/$APP/ENV" S3_PROXY_HOST $riak_ip
+    set_dokku_env "$DOKKU_ROOT/$APP/ENV" S3_PROXY_PORT $riak_port
+    set_dokku_env "$DOKKU_ROOT/$APP/ENV" AWS_ACCESS_KEY_ID $user_key
+    set_dokku_env "$DOKKU_ROOT/$APP/ENV" AWS_SECRET_ACCESS_KEY $user_secret
+    set_dokku_env "$DOKKU_ROOT/$APP/ENV" S3_BUCKET_NAME $bucket_name
+    set_dokku_env "$DOKKU_ROOT/$APP/ENV" S3_ASSET_HOST "http://assets.${APP}.${HOSTNAME}"
+    set_dokku_env "$DOKKU_ROOT/$APP/ENV" S3_ENDPOINT 'http://s3.amazonaws.com'
 
-    chown git: $app_path/ENV
+    chown dokku: "$DOKKU_ROOT/$APP/ENV"
     ;;
   riakcs:delete)
+    check_container
+    check_app
     check_exists
 
-    user_key=$(cat /home/git/.riakcs/user_${APP}.json | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
-    perl /home/git/.riakcs/s3-curl/s3curl.pl --id admin --delete -- -s -x localhost:${riak_port} http://riak-cs.s3.amazonaws.com/user/${user_key}
+    user_key=$(cat "$DOKKU_ROOT/.riakcs/user_${APP}.json" | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
+    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id admin --delete -- -s -x ${riak_ip}:${riak_port} http://riak-cs.s3.amazonaws.com/user/${user_key}
 
-    ex -sc "g/${APP} =>/d" -c "x" /home/git/.riakcs/.s3curl
+    ex -sc "g/${APP} =>/d" -c "x" "$DOKKU_ROOT/.riakcs/.s3curl"
 
-    if [[ ! -f $app_path/ENV ]]; then
-      touch $app_path/ENV
+    if [[ ! -f "$DOKKU_ROOT/$APP/ENV" ]]; then
+      touch "$DOKKU_ROOT/$APP/ENV"
     fi
 
     VARS=( "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "S3_PROXY_PORT" "S3_PROXY_HOST" "S3_BUCKET_NAME" "S3_ASSET_HOST" "S3_ENDPOINT")
     clear_dokku_env VARS 
 
-    chown git: $app_path/ENV
+    chown dokku: "$DOKKU_ROOT/$APP/ENV"
     ;;
-  riakcs:list)
-    perl /home/git/.riakcs/s3-curl/s3curl.pl --id admin -- -s -x localhost:${riak_port} -H "Accept: application/json" http://s3.amazonaws.com/riak-cs/users
+  riakcs:list_users)
+    check_container
+    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id admin -- -s -x ${riak_ip}:${riak_port} -H "Accept: application/json" http://s3.amazonaws.com/riak-cs/users
+    ;;
+  riakcs:list_buckets)
+    check_container
+    perl "$DOKKU_ROOT/.riakcs/s3-curl/s3curl.pl" --id admin -- -s -x ${riak_ip}:${riak_port} http://s3.amazonaws.com/
+    ;;
+  riakcs:start)
+    if [[ "$id" != "" ]]; then
+      echo "RiakCS container already running with ID: ${id}"
+    else
+      docker run -p 8080:8080 -d "$db_image"
+    fi
+    ;;
+  riakcs:stop)
+    check_container
+    docker stop ${id}
+    ;;
+  riakcs:status)
+    if [[ "$id" != "" ]]; then
+      echo "RiakCS container running with ID: ${id}"
+    else
+      echo "RiakCS container not running"
+    fi
+    ;;
+  help)
+    cat && cat<<EOF
+    riakcs:create <app> Create a RiakCS database
+    riakcs:delete <app> Delete specified RiakCS database
+    riakcs:start        Start the RiakCS docker container if it isn't running
+    riakcs:stop         Stop the RiakCS docker container
+    riakcs:status       Shows status of RiakCS
+    riakcs:list_users   List all RiakCS users
+    riakcs:list_buckets List all RiakCS buckets
+EOF
     ;;
 esac
 
-HOME=/home/git
+HOME=$OLDHOME
 
 cat

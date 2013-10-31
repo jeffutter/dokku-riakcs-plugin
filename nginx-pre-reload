@@ -2,8 +2,8 @@
 set -e
 APP="$1"
 
-if [[ -f "$HOME/VHOST" ]]; then
-  VHOST=$(< "$HOME/VHOST")
+if [[ -f "$DOKKU_ROOT/VHOST" ]]; then
+  VHOST=$(< "$DOKKU_ROOT/VHOST")
   SUBDOMAIN=${APP/%\.${VHOST}/}
   if [[ "$APP" == *.* ]] && [[ "$SUBDOMAIN" == "$APP" ]]; then
     hostname="${APP/\//-}"
@@ -11,20 +11,24 @@ if [[ -f "$HOME/VHOST" ]]; then
     hostname="${APP/\//-}.$VHOST"
   fi
 
-  if [[ -f "/home/git/.riakcs/user_${APP}.json" ]]; then
+  if [[ -f "$DOKKU_ROOT/.riakcs/user_${APP}.json" ]]; then
 
-    db_image=jeffutter/riakcs
-    id=$(docker ps -a | grep "$db_image":latest |  awk '{print $1}')
-    riak_port=$(docker port ${id} 8080)
-
-    if [[ ! -f $HOME/$APP/nginx-assets.conf ]]; then
-      touch $HOME/$APP/nginx-assets.conf
+    db_image="jeffutter/riakcs"
+    id=$(docker ps | grep "$db_image":latest |  awk '{print $1}')
+    riak_ip=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[1]}')
+    riak_port=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[2]}')
+    if [[ $riak_ip = "0.0.0.0" ]]; then
+      riak_ip=localhost
     fi
 
-    cat<<EOF > $HOME/$APP/nginx-assets.conf
+    if [[ ! -f "$DOKKU_ROOT/$APP/nginx-assets.conf" ]]; then
+      touch "$DOKKU_ROOT/$APP/nginx-assets.conf"
+    fi
+
+    cat<<EOF > "$DOKKU_ROOT/$APP/nginx-assets.conf"
 
 upstream riak_cs_${APP} {
-  server  localhost:${riak_port};
+  server  ${riak_ip}:${riak_port};
 }
 
 server {
