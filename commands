@@ -6,6 +6,8 @@ APP=$2
 OLDHOME=$HOME
 HOME="$DOKKU_ROOT/.riakcs"
 
+DOCKER_ARGS="-p 8080:8080 -v \"${DOKKU_ROOT}/.riakcs/data:/var/lib/riak\""
+
 check_exists() {
   if [[ ! -d "$DOKKU_ROOT/$APP" ]]; then
     echo "App must exist before creating mongodb storage for it"
@@ -97,7 +99,7 @@ case "$1" in
     if [[ "$id" != "" ]]; then
       echo "RiakCS container already running with ID: ${id}"
     else
-      docker run -p 8080:8080 -v "$DOKKU_ROOT/.riakcs/data":/var/lib/riak -d "$db_image"
+      docker run $DOCKER_ARGS -d "$db_image"
     fi
     ;;
   riakcs:stop)

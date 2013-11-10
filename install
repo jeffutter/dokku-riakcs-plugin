@@ -2,6 +2,8 @@
 
 # Build RiakCS image
 db_image="jeffutter/riakcs"
+DOCKER_ARGS="-p 8080:8080 -v \"${DOKKU_ROOT}/.riakcs/data:/var/lib/riak\""
+
 apt-get -y install unzip libdigest-hmac-perl
 docker build -q=true -t "$db_image" github.com/jeffutter/riakcs-docker
 
@@ -18,7 +20,7 @@ unzip s3-curl.zip
 rm s3-curl.zip
 
 #Get s3 admin user from container
-echo $(docker run "$db_image" cat /admin_user.json) > "$DOKKU_ROOT/.riakcs/admin_user.json"
+echo $(docker run $DOCKER_ARGS "$db_image" cat /admin_user.json) > "$DOKKU_ROOT/.riakcs/admin_user.json"
 chown -R dokku: "$DOKKU_ROOT/.riakcs/admin_user.json"
 
 ADMIN_KEY=$(cat "$DOKKU_ROOT/.riakcs/admin_user.json" | python -c "import json;import sys;print json.loads(sys.stdin.readline())['key_id']")
@@ -37,4 +39,3 @@ chmod 600 "$DOKKU_ROOT/.riakcs/.s3curl"
 chown root: "$DOKKU_ROOT/.riakcs/.s3curl"
 
 echo "include $DOKKU_ROOT/*/nginx-assets.conf;" >> /etc/nginx/conf.d/dokku.conf
-#docker run -d "$db_image"
