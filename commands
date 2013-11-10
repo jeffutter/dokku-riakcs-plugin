@@ -35,7 +35,7 @@ riak_port=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[2]}')
 if [[ $riak_public_ip = "0.0.0.0" ]]; then
   riak_public_ip=localhost
 fi
-bucket_name='default'
+bucket_name="${APP}-default"
 
 case "$1" in
   riakcs:create)
