@@ -6,7 +6,7 @@ APP=$2
 OLDHOME=$HOME
 HOME="$DOKKU_ROOT/.riakcs"
 
-DOCKER_ARGS="-p 8080:8080 -v \"${DOKKU_ROOT}/.riakcs/data:/var/lib/riak\""
+DOCKER_ARGS="-p 8080:8080 -v \"${DOKKU_ROOT}/.riakcs/data\":/var/lib/riak"
 
 check_exists() {
   if [[ ! -d "$DOKKU_ROOT/$APP" ]]; then

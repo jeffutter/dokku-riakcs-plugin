@@ -2,7 +2,7 @@
 
 # Build RiakCS image
 db_image="jeffutter/riakcs"
-DOCKER_ARGS="-p 8080:8080 -v \"${DOKKU_ROOT}/.riakcs/data:/var/lib/riak\""
+DOCKER_ARGS="-p 8080:8080 -v \"${DOKKU_ROOT}/.riakcs/data\":/var/lib/riak"
 
 apt-get -y install unzip libdigest-hmac-perl
 docker build -q=true -t "$db_image" github.com/jeffutter/riakcs-docker
