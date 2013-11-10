@@ -75,6 +75,8 @@ case "$1" in
 
     ex -sc "g/${APP} =>/d" -c "x" "$DOKKU_ROOT/.riakcs/.s3curl"
 
+    rm "$DOKKU_ROOT/.riakcs/user_${APP}.json"
+
     dokku config:unset "$APP" AWS_ACCESS_KEY_ID \
       AWS_SECRET_ACCESS_KEY \
       S3_PROXY_PORT \
