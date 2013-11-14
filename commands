@@ -60,8 +60,11 @@ case "$1" in
     dokku config:set "$APP" S3_PROXY_HOST="$riak_private_ip" \
       S3_PROXY_PORT="$riak_port" \
       AWS_ACCESS_KEY_ID="$user_key" \
+      S3_KEY="$user_key" \
       AWS_SECRET_ACCESS_KEY="$user_secret" \
+      S3_Secret="$user_secret" \
       S3_BUCKET_NAME="$bucket_name" \
+      S3_BUCKET="$bucket_name" \
       S3_ASSET_HOST="http://assets.${APP}.${HOSTNAME}" \
       S3_ENDPOINT='http://s3.amazonaws.com'
     ;;

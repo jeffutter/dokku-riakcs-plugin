@@ -15,10 +15,11 @@ if [[ -f "$DOKKU_ROOT/VHOST" ]]; then
 
     db_image="jeffutter/riakcs"
     id=$(docker ps | grep "$db_image":latest |  awk '{print $1}')
-    riak_ip=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[1]}')
+    riak_public_ip=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[1]}')
+    riak_private_ip=$(docker inspect ${id} | grep IPAddress | awk '{ print $2 }' | tr -d ',"')
     riak_port=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[2]}')
-    if [[ $riak_ip = "0.0.0.0" ]]; then
-      riak_ip=localhost
+    if [[ $riak_public_ip = "0.0.0.0" ]]; then
+      riak_public_ip=localhost
     fi
 
     if [[ ! -f "$DOKKU_ROOT/$APP/nginx-assets.conf" ]]; then
@@ -28,7 +29,7 @@ if [[ -f "$DOKKU_ROOT/VHOST" ]]; then
     cat<<EOF > "$DOKKU_ROOT/$APP/nginx-assets.conf"
 
 upstream riak_cs_${APP} {
-  server  ${riak_ip}:${riak_port};
+  server  ${riak_public_ip}:${riak_port};
 }
 
 server {
