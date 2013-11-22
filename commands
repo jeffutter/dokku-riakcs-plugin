@@ -29,11 +29,13 @@ check_container() {
 
 db_image="jeffutter/riakcs"
 id=$(docker ps | grep "$db_image":latest |  awk '{print $1}')
-riak_public_ip=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[1]}')
-riak_private_ip=$(docker inspect ${id} | grep IPAddress | awk '{ print $2 }' | tr -d ',"')
-riak_port=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[2]}')
-if [[ $riak_public_ip = "0.0.0.0" ]]; then
-  riak_public_ip=localhost
+if [[ -n "$id" ]]; then
+  riak_public_ip=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[1]}')
+  riak_private_ip=$(docker inspect ${id} | grep IPAddress | awk '{ print $2 }' | tr -d ',"')
+  riak_port=$(docker port ${id} 8080 | awk '{split($0,a,":"); print a[2]}')
+  if [[ $riak_public_ip = "0.0.0.0" ]]; then
+    riak_public_ip=localhost
+  fi
 fi
 bucket_name="${APP}-default"
 
